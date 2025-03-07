@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Admin Dashboard</h1>
+        <a href="/login">Logout</a>
+        
+        <form method="post" enctype="multipart/form-data">
+            <input type="hidden" name="action" value="upload">
+            <input type="file" name="file" required>
+            <button type="submit">Upload</button>
+        </form>
+        
+        <input type="text" class="search-bar" id="userSearch" placeholder="Search users..." onkeyup="searchUsers()">
+        <div id="userList">
+            {% for username, info in users.items() %}
+            <div class="user-item">
+                {{ username }} - 
+                <form method="post" style="display:inline">
+                    <input type="hidden" name="action" value="update_role">
+                    <input type="hidden" name="username" value="{{ username }}">
+                    <select name="role" onchange="this.form.submit()">
+                        <option value="viewer" {% if info["role"] == "viewer" %}selected{% end %}>Viewer</option>
+                        <option value="creator" {% if info["role"] == "creator" %}selected{% end %}>Creator</option>
+                        <option value="manager" {% if info["role"] == "manager" %}selected{% end %}>Manager</option>
+                    </select>
+                </form>
+                <form method="post" style="display:inline">
+                    <input type="hidden" name="action" value="delete_user">
+                    <input type="hidden" name="username" value="{{ username }}">
+                    <button type="submit" onclick="return confirm('Are you sure?')">Delete</button>
+                </form>
+            </div>
+            {% end %}
+        </div>
+        
+        <input type="text" class="search-bar" id="fileSearch" placeholder="Search files..." onkeyup="searchFiles()">
+        <div class="file-list" id="fileList">
+            {% for file in files %}
+            <div class="file-item">
+                {{ file["original_name"] }} (by {{ file["uploader"] }})
+                <a href="/admin?view={{ file['filename'] }}" target="_blank">View</a>
+                <form method="post" style="display:inline">
+                    <input type="hidden" name="action" value="delete_file">
+                    <input type="hidden" name="filename" value="{{ file['filename'] }}">
+                    <button type="submit" onclick="return confirm('Are you sure?')">Delete</button>
+                </form>
+            </div>
+            {% end %}
+        </div>
+    </div>
+    <script>
+        function searchUsers() {
+            const search = document.getElementById("userSearch").value.toLowerCase();
+            const users = document.getElementsByClassName("user-item");
+            for (let user of users) {
+                user.style.display = user.textContent.toLowerCase().includes(search) ? "" : "none";
+            }
+        }
+        
+        function searchFiles() {
+            const search = document.getElementById("fileSearch").value.toLowerCase();
+            const files = document.getElementsByClassName("file-item");
+            for (let file of files) {
+                file.style.display = file.textContent.toLowerCase().includes(search) ? "" : "none";
+            }
+        }
+    </script>
+</body>
+</html>
