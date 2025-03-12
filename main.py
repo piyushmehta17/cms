@@ -198,6 +198,7 @@ class AdminHandler(BaseHandler):
                 if username in users:
                     del users[username]
                     f.seek(0)
+                    f.truncate()
                     json.dump(users, f)
         elif action == "delete_file":
             filename = self.get_argument("filename")
