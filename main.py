@@ -4,6 +4,7 @@ import os
 import uuid
 from datetime import datetime
 import json
+import sys
 
 class BaseHandler(tornado.web.RequestHandler):
     def get_current_user(self):
@@ -11,14 +12,9 @@ class BaseHandler(tornado.web.RequestHandler):
 
 class MainHandler(BaseHandler):
     def get(self):
-        if not self.current_user:
-            self.redirect("/login")
-            return
-        user = json.loads(self.current_user.decode())
-        if user.get("role") == "admin":
-            self.redirect("/admin")
-        else:
-            self.redirect("/user")
+        # Always redirect to login page on initial access
+        self.clear_cookie("user")  # Clear the cookie to force login
+        self.redirect("/login")
 
 class SignupHandler(BaseHandler):
     def get(self):
