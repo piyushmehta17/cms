@@ -191,6 +191,7 @@ class AdminHandler(BaseHandler):
                     users[username]["role"] = role
                     f.seek(0)
                     json.dump(users, f)
+                    f.truncate() 
         elif action == "delete_user":
             username = self.get_argument("username")
             with open("users.json", "r+") as f:
