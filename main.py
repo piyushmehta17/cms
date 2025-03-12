@@ -222,6 +222,7 @@ def make_app():
     ],
     template_path="templates",
     static_path="static",
+    static_url_prefix="/static/",
     cookie_secret="your-secret-key",
     login_url="/login")
 
