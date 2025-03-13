@@ -1,7 +1,17 @@
+# Virtual environment
 cms_venv/
 
+# Python bytecode caches
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
 
-config.py 
+# Configuration files with sensitive data
+config.py
 
+# Other common ignores
+*.log
+*.sql
+static/uploads/*
 key.txt
