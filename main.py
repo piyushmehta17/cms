@@ -16,36 +16,73 @@ class MainHandler(BaseHandler):
         self.clear_cookie("user")
         self.redirect("/login")
 
-class SignupHandler(BaseHandler):
+
+import re
+import bcrypt
+import json
+import tornado.web
+from db import get_db_connection
+
+class SignupHandler(tornado.web.RequestHandler):
     def get(self):
+        """Render the signup page."""
         self.render("signup.html")
-    
+
     def post(self):
+        """Handle user signup with validation and database insertion."""
         username = self.get_argument("username")
         password = self.get_argument("password")
-        
+
+        # Validate password
+        validation_message = self.validate_password(password)
+        if validation_message:
+            self.set_status(400)  # Bad request
+            self.write(json.dumps({"error": validation_message}))
+            return
+
+        # Hash password securely
+        hashed_password = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
         conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)  # Return results as dictionaries
+        cursor = conn.cursor(dictionary=True)
         try:
-            cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
+            # Check if the username already exists
+            cursor.execute("SELECT * FROM user WHERE username = %s", (username,))
             if cursor.fetchone():
-                self.write("Username already exists")
+                self.set_status(400)
+                self.write(json.dumps({"error": "Username already exists"}))
                 return
             
+            # Insert new user into MySQL database with hashed password
             cursor.execute(
-                "INSERT INTO users (username, password, role) VALUES (%s, %s, %s)",
-                (username, password, "viewer")
+                "INSERT INTO user (username, password, role, created_at) VALUES (%s, %s, %s, NOW())",
+                (username, hashed_password, "viewer")
             )
             conn.commit()
+            self.write(json.dumps({"message": "User registered successfully"}))
         except Exception as e:
             self.set_status(500)
-            self.write(f"Error during signup: {str(e)}")
-            return
+            self.write(json.dumps({"error": f"Error during signup: {str(e)}"}))
         finally:
             cursor.close()
             conn.close()
-        
-        self.redirect("/login")
+
+    def validate_password(self, password):
+        """Validate password according to security rules."""
+        if len(password) < 8:
+            return "Password must be at least 8 characters long"
+        if not re.search(r"[A-Z]", password):
+            return "Password must contain at least one uppercase letter"
+        if not re.search(r"[a-z]", password):
+            return "Password must contain at least one lowercase letter"
+        if not re.search(r"\d", password):
+            return "Password must contain at least one digit (0-9)"
+        if not re.search(r"[@$!%*?&]", password):
+            return "Password must contain at least one special character (@$!%*?&)"
+        return None  # Password is valid
+
+
+
 
 class LoginHandler(BaseHandler):
     def get(self):
@@ -242,12 +279,22 @@ def make_app():
     login_url="/login")
 
 if __name__ == "__main__":
+
     if not os.path.exists("static/uploads"):
         os.makedirs("static/uploads")
     
     app = make_app()
     port = 8888
     max_attempts = 10
+
+    try:
+        conn = get_db_connection()
+        print("Database connection successful!")
+        conn.close()
+    except Exception as e:
+        print(f"Database connection failed: {str(e)}")
+    
+    
     
     for i in range(max_attempts):
         try:
@@ -264,3 +311,12 @@ if __name__ == "__main__":
         sys.exit(1)
     
     tornado.ioloop.IOLoop.current().start()
+
+
+
+
+
+
+
+
+
