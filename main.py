@@ -1,3 +1,4 @@
+# main.py
 import tornado.ioloop
 import tornado.web
 import os
@@ -5,6 +6,7 @@ import uuid
 from datetime import datetime
 import json
 import sys
+from db import get_db_connection
 
 class BaseHandler(tornado.web.RequestHandler):
     def get_current_user(self):
@@ -12,8 +14,7 @@ class BaseHandler(tornado.web.RequestHandler):
 
 class MainHandler(BaseHandler):
     def get(self):
-        # Always redirect to login page on initial access
-        self.clear_cookie("user")  # Clear the cookie to force login
+        self.clear_cookie("user")
         self.redirect("/login")
 
 class SignupHandler(BaseHandler):
@@ -24,23 +25,22 @@ class SignupHandler(BaseHandler):
         username = self.get_argument("username")
         password = self.get_argument("password")
         
-        with open("users.json", "r+") as f:
-            try:
-                users = json.load(f)
-            except:
-                users = {}
-            
-            if username in users:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
+            if cursor.fetchone():
                 self.write("Username already exists")
                 return
-                
-            users[username] = {
-                "password": password,
-                "role": "viewer",
-                "created_at": datetime.now().isoformat()
-            }
-            f.seek(0)
-            json.dump(users, f)
+            
+            cursor.execute(
+                "INSERT INTO users (username, password, role) VALUES (%s, %s, %s)",
+                (username, password, "viewer")
+            )
+            conn.commit()
+        finally:
+            cursor.close()
+            conn.close()
         
         self.redirect("/login")
 
@@ -56,20 +56,23 @@ class LoginHandler(BaseHandler):
             self.set_secure_cookie("user", json.dumps({"username": "admin", "role": "admin"}))
             self.redirect("/admin")
             return
-            
-        with open("users.json", "r") as f:
-            try:
-                users = json.load(f)
-                if username in users and users[username]["password"] == password:
-                    self.set_secure_cookie("user", json.dumps({
-                        "username": username,
-                        "role": users[username]["role"]
-                    }))
-                    self.redirect("/user")
-                else:
-                    self.write("Invalid credentials")
-            except:
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s", (username, password))
+            user = cursor.fetchone()
+            if user:
+                self.set_secure_cookie("user", json.dumps({
+                    "username": user[1],
+                    "role": user[3]
+                }))
+                self.redirect("/user")
+            else:
                 self.write("Invalid credentials")
+        finally:
+            cursor.close()
+            conn.close()
 
 class UserHandler(BaseHandler):
     @tornado.web.authenticated
@@ -77,60 +80,57 @@ class UserHandler(BaseHandler):
         user = json.loads(self.current_user.decode())
         view_file = self.get_argument("view", None)
         
-        with open("files.json", "r") as f:
-            try:
-                files = json.load(f)
-            except:
-                files = []
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT * FROM files")
+            files = cursor.fetchall()
+            
+            if view_file:
+                cursor.execute("SELECT * FROM files WHERE filename = %s", (view_file,))
+                file_info = cursor.fetchone()
+                if file_info and (not file_info[4] or user["role"] == "admin"):
+                    self.set_header("Content-Type", "application/octet-stream")
+                    self.set_header("Content-Disposition", f"inline; filename={file_info[2]}")
+                    with open(f"static/uploads/{view_file}", "rb") as f:
+                        self.write(f.read())
+                    return
+                else:
+                    self.write("Permission denied")
+                    return
                 
-        if view_file:
-            file_info = next((f for f in files if f["filename"] == view_file), None)
-            if file_info and (not file_info["is_admin"] or user["role"] == "admin"):
-                self.set_header("Content-Type", "application/octet-stream")
-                self.set_header("Content-Disposition", f"inline; filename={file_info['original_name']}")
-                with open(f"static/uploads/{view_file}", "rb") as f:
-                    self.write(f.read())
-                return
-            else:
-                self.write("Permission denied")
-                return
-                
-        self.render("user.html", user=user, files=files)
+            self.render("user.html", user=user, files=files)
+        finally:
+            cursor.close()
+            conn.close()
     
     def post(self):
         user = json.loads(self.current_user.decode())
         action = self.get_argument("action", "")
         
-        if action == "delete" and user["role"] == "manager":
-            filename = self.get_argument("filename")
-            with open("files.json", "r+") as f:
-                files = json.load(f)
-                files = [f for f in files if f["filename"] != filename and not f["is_admin"]]
-                f.seek(0)
-                f.truncate()
-                json.dump(files, f)
-            os.remove(f"static/uploads/{filename}")
-        
-        elif user["role"] in ["creator", "manager"]:
-            file = self.request.files.get("file")[0]
-            filename = str(uuid.uuid4()) + "_" + file["filename"]
-            with open(f"static/uploads/{filename}", "wb") as f:
-                f.write(file["body"])
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            if action == "delete" and user["role"] == "manager":
+                filename = self.get_argument("filename")
+                cursor.execute("DELETE FROM files WHERE filename = %s AND is_admin = FALSE", (filename,))
+                conn.commit()
+                os.remove(f"static/uploads/{filename}")
             
-            with open("files.json", "r+") as f:
-                try:
-                    files = json.load(f)
-                except:
-                    files = []
-                files.append({
-                    "filename": filename,
-                    "original_name": file["filename"],
-                    "uploader": user["username"],
-                    "is_admin": False
-                })
-                f.seek(0)
-                f.truncate()
-                json.dump(files, f)
+            elif user["role"] in ["creator", "manager"]:
+                file = self.request.files.get("file")[0]
+                filename = str(uuid.uuid4()) + "_" + file["filename"]
+                with open(f"static/uploads/{filename}", "wb") as f:
+                    f.write(file["body"])
+                
+                cursor.execute(
+                    "INSERT INTO files (filename, original_name, uploader, is_admin) VALUES (%s, %s, %s, %s)",
+                    (filename, file["filename"], user["username"], False)
+                )
+                conn.commit()
+        finally:
+            cursor.close()
+            conn.close()
         self.redirect("/user")
 
 class AdminHandler(BaseHandler):
@@ -142,74 +142,65 @@ class AdminHandler(BaseHandler):
             return
             
         view_file = self.get_argument("view", None)
-        with open("users.json", "r") as f:
-            users = json.load(f)
-        with open("files.json", "r") as f:
-            try:
-                files = json.load(f)
-            except:
-                files = []
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT * FROM users")
+            users = cursor.fetchall()
+            cursor.execute("SELECT * FROM files")
+            files = cursor.fetchall()
+            
+            if view_file:
+                cursor.execute("SELECT * FROM files WHERE filename = %s", (view_file,))
+                file_info = cursor.fetchone()
+                if file_info:
+                    self.set_header("Content-Type", "application/octet-stream")
+                    self.set_header("Content-Disposition", f"inline; filename={file_info[2]}")
+                    with open(f"static/uploads/{view_file}", "rb") as f:
+                        self.write(f.read())
+                    return
                 
-        if view_file:
-            file_info = next((f for f in files if f["filename"] == view_file), None)
-            if file_info:
-                self.set_header("Content-Type", "application/octet-stream")
-                self.set_header("Content-Disposition", f"inline; filename={file_info['original_name']}")
-                with open(f"static/uploads/{view_file}", "rb") as f:
-                    self.write(f.read())
-                return
-                
-        self.render("admin.html", users=users, files=files)
+            self.render("admin.html", users=users, files=files)
+        finally:
+            cursor.close()
+            conn.close()
     
     def post(self):
         action = self.get_argument("action", "")
-        if action == "upload":
-            file = self.request.files.get("file")[0]
-            filename = str(uuid.uuid4()) + "_" + file["filename"]
-            with open(f"static/uploads/{filename}", "wb") as f:
-                f.write(file["body"])
-            
-            with open("files.json", "r+") as f:
-                try:
-                    files = json.load(f)
-                except:
-                    files = []
-                files.append({
-                    "filename": filename,
-                    "original_name": file["filename"],
-                    "uploader": "admin",
-                    "is_admin": True
-                })
-                f.seek(0)
-                json.dump(files, f)
-        elif action == "update_role":
-            username = self.get_argument("username")
-            role = self.get_argument("role")
-            with open("users.json", "r+") as f:
-                users = json.load(f)
-                if username in users:
-                    users[username]["role"] = role
-                    f.seek(0)
-                    json.dump(users, f)
-                    f.truncate() 
-        elif action == "delete_user":
-            username = self.get_argument("username")
-            with open("users.json", "r+") as f:
-                users = json.load(f)
-                if username in users:
-                    del users[username]
-                    f.seek(0)
-                    f.truncate()
-                    json.dump(users, f)
-        elif action == "delete_file":
-            filename = self.get_argument("filename")
-            with open("files.json", "r+") as f:
-                files = json.load(f)
-                files = [f for f in files if f["filename"] != filename]
-                f.seek(0)
-                f.truncate()
-                json.dump(files, f)
-            os.remove(f"static/uploads/{filename}")
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            if action == "upload":
+                file = self.request.files.get("file")[0]
+                filename = str(uuid.uuid4()) + "_" + file["filename"]
+                with open(f"static/uploads/{filename}", "wb") as f:
+                    f.write(file["body"])
+                
+                cursor.execute(
+                    "INSERT INTO files (filename, original_name, uploader, is_admin) VALUES (%s, %s, %s, %s)",
+                    (filename, file["filename"], "admin", True)
+                )
+                conn.commit()
+            elif action == "update_role":
+                username = self.get_argument("username")
+                role = self.get_argument("role")
+                cursor.execute(
+                    "UPDATE users SET role = %s WHERE username = %s",
+                    (role, username)
+                )
+                conn.commit()
+            elif action == "delete_user":
+                username = self.get_argument("username")
+                cursor.execute("DELETE FROM users WHERE username = %s", (username,))
+                conn.commit()
+            elif action == "delete_file":
+                filename = self.get_argument("filename")
+                cursor.execute("DELETE FROM files WHERE filename = %s", (filename,))
+                conn.commit()
+                os.remove(f"static/uploads/{filename}")
+        finally:
+            cursor.close()
+            conn.close()
         self.redirect("/admin")
 
 def make_app():
@@ -229,13 +220,7 @@ def make_app():
 if __name__ == "__main__":
     if not os.path.exists("static/uploads"):
         os.makedirs("static/uploads")
-    if not os.path.exists("users.json"):
-        with open("users.json", "w") as f:
-            json.dump({}, f)
-    if not os.path.exists("files.json"):
-        with open("files.json", "w") as f:
-            json.dump([], f)
-            
+    
     app = make_app()
     port = 8888
     max_attempts = 10
