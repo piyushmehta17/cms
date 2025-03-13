@@ -3,7 +3,6 @@ import tornado.ioloop
 import tornado.web
 import os
 import uuid
-from datetime import datetime
 import json
 import sys
 from db import get_db_connection
@@ -26,7 +25,7 @@ class SignupHandler(BaseHandler):
         password = self.get_argument("password")
         
         conn = get_db_connection()
-        cursor = conn.cursor()
+        cursor = conn.cursor(dictionary=True)  # Return results as dictionaries
         try:
             cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
             if cursor.fetchone():
@@ -38,6 +37,10 @@ class SignupHandler(BaseHandler):
                 (username, password, "viewer")
             )
             conn.commit()
+        except Exception as e:
+            self.set_status(500)
+            self.write(f"Error during signup: {str(e)}")
+            return
         finally:
             cursor.close()
             conn.close()
@@ -58,18 +61,24 @@ class LoginHandler(BaseHandler):
             return
         
         conn = get_db_connection()
-        cursor = conn.cursor()
+        cursor = conn.cursor(dictionary=True)  # Return results as dictionaries
         try:
-            cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s", (username, password))
+            cursor.execute(
+                "SELECT username, role FROM users WHERE username = %s AND password = %s",
+                (username, password)
+            )
             user = cursor.fetchone()
             if user:
                 self.set_secure_cookie("user", json.dumps({
-                    "username": user[1],
-                    "role": user[3]
+                    "username": user["username"],
+                    "role": user["role"]
                 }))
                 self.redirect("/user")
             else:
                 self.write("Invalid credentials")
+        except Exception as e:
+            self.set_status(500)
+            self.write(f"Error during login: {str(e)}")
         finally:
             cursor.close()
             conn.close()
@@ -81,7 +90,7 @@ class UserHandler(BaseHandler):
         view_file = self.get_argument("view", None)
         
         conn = get_db_connection()
-        cursor = conn.cursor()
+        cursor = conn.cursor(dictionary=True)  # Return results as dictionaries
         try:
             cursor.execute("SELECT * FROM files")
             files = cursor.fetchall()
@@ -89,9 +98,9 @@ class UserHandler(BaseHandler):
             if view_file:
                 cursor.execute("SELECT * FROM files WHERE filename = %s", (view_file,))
                 file_info = cursor.fetchone()
-                if file_info and (not file_info[4] or user["role"] == "admin"):
+                if file_info and (not file_info["is_admin"] or user["role"] == "admin"):
                     self.set_header("Content-Type", "application/octet-stream")
-                    self.set_header("Content-Disposition", f"inline; filename={file_info[2]}")
+                    self.set_header("Content-Disposition", f"inline; filename={file_info['original_name']}")
                     with open(f"static/uploads/{view_file}", "rb") as f:
                         self.write(f.read())
                     return
@@ -100,6 +109,9 @@ class UserHandler(BaseHandler):
                     return
                 
             self.render("user.html", user=user, files=files)
+        except Exception as e:
+            self.set_status(500)
+            self.write(f"Error in user handler: {str(e)}")
         finally:
             cursor.close()
             conn.close()
@@ -109,7 +121,7 @@ class UserHandler(BaseHandler):
         action = self.get_argument("action", "")
         
         conn = get_db_connection()
-        cursor = conn.cursor()
+        cursor = conn.cursor(dictionary=True)
         try:
             if action == "delete" and user["role"] == "manager":
                 filename = self.get_argument("filename")
@@ -128,6 +140,10 @@ class UserHandler(BaseHandler):
                     (filename, file["filename"], user["username"], False)
                 )
                 conn.commit()
+        except Exception as e:
+            self.set_status(500)
+            self.write(f"Error in user post: {str(e)}")
+            return
         finally:
             cursor.close()
             conn.close()
@@ -143,10 +159,11 @@ class AdminHandler(BaseHandler):
             
         view_file = self.get_argument("view", None)
         conn = get_db_connection()
-        cursor = conn.cursor()
+        cursor = conn.cursor(dictionary=True)  # Return results as dictionaries
         try:
-            cursor.execute("SELECT * FROM users")
-            users = cursor.fetchall()
+            cursor.execute("SELECT username, role FROM users")
+            users = {user["username"]: {"role": user["role"]} for user in cursor.fetchall()}
+            
             cursor.execute("SELECT * FROM files")
             files = cursor.fetchall()
             
@@ -155,12 +172,15 @@ class AdminHandler(BaseHandler):
                 file_info = cursor.fetchone()
                 if file_info:
                     self.set_header("Content-Type", "application/octet-stream")
-                    self.set_header("Content-Disposition", f"inline; filename={file_info[2]}")
+                    self.set_header("Content-Disposition", f"inline; filename={file_info['original_name']}")
                     with open(f"static/uploads/{view_file}", "rb") as f:
                         self.write(f.read())
                     return
                 
             self.render("admin.html", users=users, files=files)
+        except Exception as e:
+            self.set_status(500)
+            self.write(f"Error in admin handler: {str(e)}")
         finally:
             cursor.close()
             conn.close()
@@ -198,6 +218,10 @@ class AdminHandler(BaseHandler):
                 cursor.execute("DELETE FROM files WHERE filename = %s", (filename,))
                 conn.commit()
                 os.remove(f"static/uploads/{filename}")
+        except Exception as e:
+            self.set_status(500)
+            self.write(f"Error in admin post: {str(e)}")
+            return
         finally:
             cursor.close()
             conn.close()
