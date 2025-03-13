@@ -1,6 +1,7 @@
 
 class Config:
     
+    
     DB_HOST = "localhost"  # Replace with your database host
     DB_PORT = 3306         # Replace with your database port
     DB_USER = "root"       # Replace with your database username

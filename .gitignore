@@ -1,3 +1,7 @@
-cms_venv
-__pycache__
+cms_venv/
+
+
+__pycache__/
+
+
 config.py 
