@@ -1,5 +1,5 @@
-# db.py
-import mysql.connector
+
+import mysql.connector 
 from config import config
 
 def get_db_connection():

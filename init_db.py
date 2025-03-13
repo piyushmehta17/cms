@@ -1,4 +1,4 @@
-# init_db.py
+
 from db import get_db_connection
 
 def initialize_database():
