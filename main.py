@@ -211,6 +211,7 @@ class AdminHandler(BaseHandler):
                 json.dump(files, f)
             os.remove(f"static/uploads/{filename}")
         self.redirect("/admin")
+##ujjwal branch check
 
 def make_app():
     return tornado.web.Application([
