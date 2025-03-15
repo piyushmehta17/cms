@@ -372,11 +372,457 @@ class UserHandler(BaseHandler):
 
 
 
+# class AdminHandler(BaseHandler):
+#     @tornado.web.authenticated
+#     def get(self):
+#         user = json.loads(self.current_user.decode())
+#         if user["role"] != "admin":
+#             self.redirect("/user")
+#             return
+            
+#         view_file = self.get_argument("view", None)
+#         conn = get_db_connection()
+#         cursor = conn.cursor(dictionary=True)  # Return results as dictionaries
+#         try:
+#             cursor.execute("SELECT username, role FROM users")
+#             users = {user["username"]: {"role": user["role"]} for user in cursor.fetchall()}
+            
+#             cursor.execute("SELECT * FROM files")
+#             files = cursor.fetchall()
+            
+#             if view_file:
+#                 cursor.execute("SELECT * FROM files WHERE filename = %s", (view_file,))
+#                 file_info = cursor.fetchone()
+#                 if file_info:
+#                     self.set_header("Content-Type", "application/octet-stream")
+#                     self.set_header("Content-Disposition", f"inline; filename={file_info['original_name']}")
+#                     with open(f"static/uploads/{view_file}", "rb") as f:
+#                         self.write(f.read())
+#                     return
+                
+#             self.render("admin.html", users=users, files=files)
+#         except Exception as e:
+#             self.set_status(500)
+#             self.write(f"Error in admin handler: {str(e)}")
+#         finally:
+#             cursor.close()
+#             conn.close()
+    
+#     def post(self):
+#         action = self.get_argument("action", "")
+#         conn = get_db_connection()
+#         cursor = conn.cursor()
+#         try:
+#             if action == "upload":
+#                 file = self.request.files.get("file")[0]
+#                 filename = str(uuid.uuid4()) + "_" + file["filename"]
+#                 with open(f"static/uploads/{filename}", "wb") as f:
+#                     f.write(file["body"])
+                
+#                 cursor.execute(
+#                     "INSERT INTO files (filename, original_name, uploader, is_admin) VALUES (%s, %s, %s, %s)",
+#                     (filename, file["filename"], "admin", True)
+#                 )
+#                 conn.commit()
+#             elif action == "update_role":
+#                 username = self.get_argument("username")
+#                 role = self.get_argument("role")
+#                 cursor.execute(
+#                     "UPDATE users SET role = %s WHERE username = %s",
+#                     (role, username)
+#                 )
+#                 conn.commit()
+#             elif action == "delete_user":
+#                 username = self.get_argument("username")
+#                 cursor.execute("DELETE FROM users WHERE username = %s", (username,))
+#                 conn.commit()
+#             elif action == "delete_file":
+#                 filename = self.get_argument("filename")
+#                 cursor.execute("DELETE FROM files WHERE filename = %s", (filename,))
+#                 conn.commit()
+#                 os.remove(f"static/uploads/{filename}")
+#         except Exception as e:
+#             self.set_status(500)
+#             self.write(f"Error in admin post: {str(e)}")
+#             return
+#         finally:
+#             cursor.close()
+#             conn.close()
+#         self.redirect("/admin")
+
+######### ujjwal
+
+
+# class AdminHandler(BaseHandler):
+#     @tornado.web.authenticated
+#     def get(self):
+#         try:
+#             # Decode the current user from the cookie
+#             user = json.loads(self.current_user.decode())
+            
+#             # Redirect non-admin users to the user page
+#             if user["role"] != "admin":
+#                 self.redirect("/user")
+#                 return
+            
+#             # Check if the user is requesting to view a specific file
+#             view_file = self.get_argument("view", None)
+            
+#             # Connect to the MySQL database using the get_db_connection function
+#             conn = get_db_connection()
+#             cursor = conn.cursor(dictionary=True)  # Return results as dictionaries
+            
+#             try:
+#                 # Fetch all users from the database
+#                 cursor.execute("SELECT username, role FROM user")
+#                 users = {user["username"]: {"role": user["role"]} for user in cursor.fetchall()}
+                
+#                 # Fetch all files from the database
+#                 cursor.execute("SELECT * FROM files")
+#                 files = cursor.fetchall()
+                
+#                 # If the user is requesting to view a specific file
+#                 if view_file:
+#                     cursor.execute("SELECT * FROM files WHERE filename = %s", (view_file,))
+#                     file_info = cursor.fetchone()
+                    
+#                     # Check if the file exists
+#                     if file_info:
+#                         self.set_header("Content-Type", "application/octet-stream")
+#                         self.set_header("Content-Disposition", f"inline; filename={file_info['original_name']}")
+                        
+#                         # Stream the file content from the database
+#                         self.write(file_info["file_content"])
+#                         return
+                
+#                 # Render the admin page with the list of users and files
+#                 self.render("admin.html", users=users, files=files)
+            
+#             except Exception as e:
+#                 self.set_status(500)
+#                 self.write(f"Error in admin handler: {str(e)}")
+            
+#             finally:
+#                 # Close the database connection
+#                 cursor.close()
+#                 conn.close()
+        
+#         except Exception as e:
+#             self.set_status(500)
+#             self.write(f"Error decoding user data: {str(e)}")
+    
+#     def post(self):
+#         try:
+#             # Decode the current user from the cookie
+#             user = json.loads(self.current_user.decode())
+            
+#             # Redirect non-admin users to the user page
+#             if user["role"] != "admin":
+#                 self.redirect("/user")
+#                 return
+            
+#             # Get the action from the request
+#             action = self.get_argument("action", "")
+            
+#             # Connect to the MySQL database using the get_db_connection function
+#             conn = get_db_connection()
+#             cursor = conn.cursor()
+            
+#             try:
+#                 # Handle file upload
+#                 if action == "upload":
+#                     file = self.request.files.get("file")[0]
+#                     filename = str(uuid.uuid4()) + "_" + file["filename"]
+                    
+#                     # Save the file content to the database
+#                     cursor.execute(
+#                         "INSERT INTO files (filename, original_name, uploader, is_admin, file_content) VALUES (%s, %s, %s, %s, %s)",
+#                         (filename, file["filename"], "admin", True, file["body"])
+#                     )
+#                     conn.commit()
+                
+#                 # Handle role update
+#                 elif action == "update_role":
+#                     username = self.get_argument("username")
+#                     role = self.get_argument("role")
+#                     cursor.execute(
+#                         "UPDATE user SET role = %s WHERE username = %s",
+#                         (role, username)
+#                     )
+#                     conn.commit()
+                
+#                 # Handle user deletion
+#                 elif action == "delete_user":
+#                     username = self.get_argument("username")
+#                     cursor.execute("DELETE FROM user WHERE username = %s", (username,))
+#                     conn.commit()
+                
+#                 # Handle file deletion
+#                 elif action == "delete_file":
+#                     filename = self.get_argument("filename")
+#                     cursor.execute("DELETE FROM files WHERE filename = %s", (filename,))
+#                     conn.commit()
+            
+#             except Exception as e:
+#                 self.set_status(500)
+#                 self.write(f"Error in admin post: {str(e)}")
+#                 return
+            
+#             finally:
+#                 # Close the database connection
+#                 cursor.close()
+#                 conn.close()
+            
+#             # Redirect to the admin page after successful operation
+#             self.redirect("/admin")
+        
+#         except Exception as e:
+#             self.set_status(500)
+#             self.write(f"Error decoding user data: {str(e)}")
+
+####ujjwal second
+
+
+# class AdminHandler(BaseHandler):
+#     @tornado.web.authenticated
+#     def get(self):
+#         user = json.loads(self.current_user.decode())
+#         if user["role"] != "admin":
+#             self.redirect("/user")
+#             return
+            
+#         view_file = self.get_argument("view", None)
+#         conn = get_db_connection()
+#         cursor = conn.cursor(dictionary=True)  # Return results as dictionaries
+#         try:
+#             # Fetch users from the database
+#             cursor.execute("SELECT username, role, created_at FROM user")
+#             #users = {user["username"]: {"role": user["role"], "created_at": user["created_at"]} for user in cursor.fetchall()]
+#             users = {user["username"]: {"role": user["role"], "created_at": user["created_at"]} for user in cursor.fetchall()}
+#             # Fetch files from the database
+#             cursor.execute("SELECT * FROM files")
+#             files = cursor.fetchall()
+            
+#             # If a specific file is requested, serve it
+#             if view_file:
+#                 cursor.execute("SELECT * FROM files WHERE filename = %s", (view_file,))
+#                 file_info = cursor.fetchone()
+#                 if file_info:
+#                     self.set_header("Content-Type", "application/octet-stream")
+#                     self.set_header("Content-Disposition", f"inline; filename={file_info['original_name']}")
+#                     with open(f"static/uploads/{view_file}", "rb") as f:
+#                         self.write(f.read())
+#                     return
+                
+#             # Render the admin template with users and files data
+#             self.render("admin.html", users=users, files=files)
+#         except Exception as e:
+#             self.set_status(500)
+#             self.write(f"Error in admin handler: {str(e)}")
+#         finally:
+#             cursor.close()
+#             conn.close()
+    
+#     def post(self):
+#         action = self.get_argument("action", "")
+#         conn = get_db_connection()
+#         cursor = conn.cursor()
+#         try:
+#             if action == "upload":
+#                 file = self.request.files.get("file")[0]
+#                 filename = str(uuid.uuid4()) + "_" + file["filename"]
+#                 with open(f"static/uploads/{filename}", "wb") as f:
+#                     f.write(file["body"])
+                
+#                 cursor.execute(
+#                     "INSERT INTO files (filename, original_name, uploader, is_admin) VALUES (%s, %s, %s, %s)",
+#                     (filename, file["filename"], "admin", True)
+#                 )
+#                 conn.commit()
+#             elif action == "update_role":
+#                 username = self.get_argument("username")
+#                 role = self.get_argument("role")
+#                 cursor.execute(
+#                     "UPDATE user SET role = %s WHERE username = %s",
+#                     (role, username)
+#                 )
+#                 conn.commit()
+#             elif action == "delete_user":
+#                 username = self.get_argument("username")
+#                 cursor.execute("DELETE FROM user WHERE username = %s", (username,))
+#                 conn.commit()
+#             elif action == "delete_file":
+#                 filename = self.get_argument("filename")
+#                 cursor.execute("DELETE FROM files WHERE filename = %s", (filename,))
+#                 conn.commit()
+#                 os.remove(f"static/uploads/{filename}")
+#         except Exception as e:
+#             self.set_status(500)
+#             self.write(f"Error in admin post: {str(e)}")
+#             return
+#         finally:
+#             cursor.close()
+#             conn.close()
+#         self.redirect("/admin")
+
+
+# def post(self):
+#     action = self.get_argument("action", "")
+#     conn = get_db_connection()
+#     cursor = conn.cursor()
+#     try:
+#         if action == "upload":
+#             file = self.request.files.get("file")[0]
+#             filename = str(uuid.uuid4()) + "_" + file["filename"]
+#             with open(f"static/uploads/{filename}", "wb") as f:
+#                 f.write(file["body"])
+            
+#             cursor.execute(
+#                 "INSERT INTO files (filename, original_name, uploader, is_admin) VALUES (%s, %s, %s, %s)",
+#                 (filename, file["filename"], "admin", True)
+#             )
+#             conn.commit()
+#         elif action == "update_role":
+#             username = self.get_argument("username")
+#             role = self.get_argument("role")
+            
+#             # Validate the role value
+#             valid_roles = ["admin", "viewer", "manager", "creator"]  # Add all valid roles here
+#             if role not in valid_roles:
+#                 self.set_status(400)
+#                 self.write("Invalid role value")
+#                 return
+            
+#             cursor.execute(
+#                 "UPDATE user SET role = %s WHERE username = %s",
+#                 (role, username)
+#             )
+#             conn.commit()
+#         elif action == "delete_user":
+#             username = self.get_argument("username")
+#             cursor.execute("DELETE FROM user WHERE username = %s", (username,))
+#             conn.commit()
+#         elif action == "delete_file":
+#             filename = self.get_argument("filename")
+#             cursor.execute("DELETE FROM files WHERE filename = %s", (filename,))
+#             conn.commit()
+#             os.remove(f"static/uploads/{filename}")
+#     except Exception as e:
+#         self.set_status(500)
+#         self.write(f"Error in admin post: {str(e)}")
+#         return
+#     finally:
+#         cursor.close()
+#         conn.close()
+#     self.redirect("/admin")
+
+
+
+# class AdminHandler(BaseHandler):
+#     @tornado.web.authenticated  # Ensure the user is authenticated
+#     def get(self):
+#         # Decode the current user from the session
+#         user = json.loads(self.current_user.decode())
+#         if user["role"] != "admin":  # Only allow admin users
+#             self.redirect("/user")
+#             return
+            
+#         view_file = self.get_argument("view", None)
+#         conn = get_db_connection()
+#         cursor = conn.cursor(dictionary=True)  # Return results as dictionaries
+#         try:
+#             # Fetch users from the database
+#             cursor.execute("SELECT username, role, created_at FROM user")
+#             users = {user["username"]: {"role": user["role"], "created_at": user["created_at"]} for user in cursor.fetchall()}
+            
+#             # Fetch files from the database
+#             cursor.execute("SELECT * FROM files")
+#             files = cursor.fetchall()
+            
+#             # If a specific file is requested, serve it
+#             if view_file:
+#                 cursor.execute("SELECT * FROM files WHERE filename = %s", (view_file,))
+#                 file_info = cursor.fetchone()
+#                 if file_info:
+#                     self.set_header("Content-Type", "application/octet-stream")
+#                     self.set_header("Content-Disposition", f"inline; filename={file_info['original_name']}")
+#                     with open(f"static/uploads/{view_file}", "rb") as f:
+#                         self.write(f.read())
+#                     return
+                
+#             # Render the admin template with users and files data
+#             self.render("admin.html", users=users, files=files)
+#         except Exception as e:
+#             self.set_status(500)
+#             self.write(f"Error in admin handler: {str(e)}")
+#         finally:
+#             cursor.close()
+#             conn.close()
+    
+#     @tornado.web.authenticated  # Ensure the user is authenticated
+#     def post(self):
+#         user = json.loads(self.current_user.decode())
+#         if user["role"] != "admin":  # Only allow admin users
+#             self.redirect("/user")
+#             return
+            
+#         action = self.get_argument("action", "")
+#         conn = get_db_connection()
+#         cursor = conn.cursor()
+#         try:
+#             if action == "upload":
+#                 file = self.request.files.get("file")[0]
+#                 filename = str(uuid.uuid4()) + "_" + file["filename"]
+#                 with open(f"static/uploads/{filename}", "wb") as f:
+#                     f.write(file["body"])
+                
+#                 cursor.execute(
+#                     "INSERT INTO files (filename, original_name, uploader, is_admin) VALUES (%s, %s, %s, %s)",
+#                     (filename, file["filename"], "admin", True)
+#                 )
+#                 conn.commit()
+#             elif action == "update_role":
+#                 username = self.get_argument("username")
+#                 role = self.get_argument("role")
+                
+#                 # Validate the role value
+#                 valid_roles = ["admin", "viewer", "manager", "creator"]  # Add all valid roles here
+#                 if role not in valid_roles:
+#                     self.set_status(400)
+#                     self.write("Invalid role value")
+#                     return
+                
+#                 cursor.execute(
+#                     "UPDATE user SET role = %s WHERE username = %s",
+#                     (role, username)
+#                 )
+#                 conn.commit()
+#             elif action == "delete_user":
+#                 username = self.get_argument("username")
+#                 cursor.execute("DELETE FROM user WHERE username = %s", (username,))
+#                 conn.commit()
+#             elif action == "delete_file":
+#                 filename = self.get_argument("filename")
+#                 cursor.execute("DELETE FROM files WHERE filename = %s", (filename,))
+#                 conn.commit()
+#                 os.remove(f"static/uploads/{filename}")
+#         except Exception as e:
+#             self.set_status(500)
+#             self.write(f"Error in admin post: {str(e)}")
+#             return
+#         finally:
+#             cursor.close()
+#             conn.close()
+#         self.redirect("/admin")
+
+##admin wale change
+
 class AdminHandler(BaseHandler):
     @tornado.web.authenticated
     def get(self):
+        # Decode the current user from the session
         user = json.loads(self.current_user.decode())
-        if user["role"] != "admin":
+        if user["role"] != "admin":  # Only allow admin users
             self.redirect("/user")
             return
             
@@ -384,12 +830,15 @@ class AdminHandler(BaseHandler):
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)  # Return results as dictionaries
         try:
-            cursor.execute("SELECT username, role FROM users")
-            users = {user["username"]: {"role": user["role"]} for user in cursor.fetchall()}
+            # Fetch users from the database, excluding the admin user
+            cursor.execute("SELECT username, role, created_at FROM user WHERE username != 'admin'")
+            users = {user["username"]: {"role": user["role"], "created_at": user["created_at"]} for user in cursor.fetchall()}
             
+            # Fetch files from the database
             cursor.execute("SELECT * FROM files")
             files = cursor.fetchall()
             
+            # If a specific file is requested, serve it
             if view_file:
                 cursor.execute("SELECT * FROM files WHERE filename = %s", (view_file,))
                 file_info = cursor.fetchone()
@@ -400,6 +849,7 @@ class AdminHandler(BaseHandler):
                         self.write(f.read())
                     return
                 
+            # Render the admin template with users and files data
             self.render("admin.html", users=users, files=files)
         except Exception as e:
             self.set_status(500)
@@ -408,7 +858,13 @@ class AdminHandler(BaseHandler):
             cursor.close()
             conn.close()
     
+    @tornado.web.authenticated
     def post(self):
+        user = json.loads(self.current_user.decode())
+        if user["role"] != "admin":  # Only allow admin users
+            self.redirect("/user")
+            return
+            
         action = self.get_argument("action", "")
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -427,14 +883,35 @@ class AdminHandler(BaseHandler):
             elif action == "update_role":
                 username = self.get_argument("username")
                 role = self.get_argument("role")
+                
+                # Prevent updating the admin user's role
+                if username == "admin":
+                    self.set_status(400)
+                    self.write("Cannot update the role of the admin user")
+                    return
+                
+                # Validate the role value
+                valid_roles = ["admin", "viewer", "manager", "creator"]  # Add all valid roles here
+                if role not in valid_roles:
+                    self.set_status(400)
+                    self.write("Invalid role value")
+                    return
+                
                 cursor.execute(
-                    "UPDATE users SET role = %s WHERE username = %s",
+                    "UPDATE user SET role = %s WHERE username = %s",
                     (role, username)
                 )
                 conn.commit()
             elif action == "delete_user":
                 username = self.get_argument("username")
-                cursor.execute("DELETE FROM users WHERE username = %s", (username,))
+                
+                # Prevent deleting the admin user
+                if username == "admin":
+                    self.set_status(400)
+                    self.write("Cannot delete the admin user")
+                    return
+                
+                cursor.execute("DELETE FROM user WHERE username = %s", (username,))
                 conn.commit()
             elif action == "delete_file":
                 filename = self.get_argument("filename")
