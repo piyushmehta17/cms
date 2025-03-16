@@ -1,59 +1,3 @@
-<!-- <!DOCTYPE html>
-<html>
-<head>
-    <title>User Dashboard</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-</head>
-<body>
-    <div class="user-dashboard-container">
-        <div class="section">
-            <h1>Welcome, {{ user["username"] }} ({{ user["role"] }})</h1>
-            <a href="/login" class="logout">Logout</a>
-            
-            {% if user["role"] in ["creator", "manager"] %}
-            <form method="post" enctype="multipart/form-data" class="upload-form">
-                <input type="file" name="file" required>
-                <button type="submit">Upload File</button>
-            </form>
-            {% end %}
-            
-            <input type="text" class="search-bar" id="search" placeholder="Search files..." onkeyup="searchFiles()">
-            
-            <div class="file-list" id="fileList">
-                {% for file in files %}
-                <div class="file-item">
-                    <span>{{ file["original_name"] }} (by {{ file["uploader"] }})</span>
-                    <div>
-                        {% if not file["is_admin"] %}
-                        <a href="/user?view={{ file['filename'] }}" target="_blank">View</a>
-                        {% end %}
-                        {% if user["role"] == "manager" and not file["is_admin"] %}
-                        <form method="post" action="/user" style="display:inline">
-                            <input type="hidden" name="action" value="delete">
-                            <input type="hidden" name="filename" value="{{ file['filename'] }}">
-                            <button type="submit" onclick="return confirm('Are you sure?')">Delete</button>
-                        </form>
-                        {% end %}
-                    </div>
-                </div>
-                {% end %}
-            </div>
-        </div>
-    </div>
-    <script>
-        function searchFiles() {
-            const search = document.getElementById("search").value.toLowerCase();
-            const files = document.getElementsByClassName("file-item");
-            for (let file of files) {
-                file.style.display = file.textContent.toLowerCase().includes(search) ? "" : "none";
-            }
-        }
-    </script>
-</body>
-</html> -->
-
-
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -64,6 +8,7 @@
     <div class="user-dashboard-container">
         <div class="section">
             <h1>Welcome, {{ user["username"] }} ({{ user["role"] }})</h1>
+            <!-- Logout Link -->
             <a href="/logout" class="logout">Logout</a>
             
             {% if user["role"] in ["creator", "manager"] %}
@@ -100,6 +45,7 @@
             </div>
         </div>
     </div>
+
     <script>
         function searchFiles() {
             const search = document.getElementById("search").value.toLowerCase();
