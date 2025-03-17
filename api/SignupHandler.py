@@ -24,7 +24,7 @@ class SignupHandler(tornado.web.RequestHandler):
         cursor = conn.cursor(dictionary=True)
         try:
             # Check if the username already exists
-            cursor.execute("SELECT * FROM user WHERE username = %s", (username,))
+            cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
             if cursor.fetchone():
                 self.set_status(400)
                 self.write(json.dumps({"error": "Username already exists"}))
@@ -32,7 +32,7 @@ class SignupHandler(tornado.web.RequestHandler):
             
             # Insert new user into MySQL database with hashed password
             cursor.execute(
-                "INSERT INTO user (username, password, role, created_at) VALUES (%s, %s, %s, NOW())",
+                "INSERT INTO users (username, password, role, created_at) VALUES (%s, %s, %s, NOW())",
                 (username, hashed_password, "viewer")
             )
             conn.commit()

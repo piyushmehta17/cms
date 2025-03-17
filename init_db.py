@@ -1,12 +1,26 @@
-
+# init_db.py
 from db import get_db_connection
 
 def initialize_database():
-    # SQL commands to create the database and tables
+    # Step 1: Create the database (connect without specifying a database)
+    sql_create_db = """
+    CREATE DATABASE IF NOT EXISTS file_manager;
+    """
+    
+    conn = get_db_connection(database=None)  # Connect without a database
+    cursor = conn.cursor()
+    try:
+        cursor.execute(sql_create_db)
+        conn.commit()
+        print("Database 'file_manager' created or already exists!")
+    except Exception as e:
+        print(f"Error creating database: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+    # Step 2: Create tables (connect to file_manager)
     sql_commands = [
-        """
-        CREATE DATABASE IF NOT EXISTS file_manager;
-        """,
         """
         USE file_manager;
         """,
@@ -31,16 +45,15 @@ def initialize_database():
         """
     ]
 
-    # Execute the SQL commands
-    conn = get_db_connection()
+    conn = get_db_connection()  # Now connect to file_manager
     cursor = conn.cursor()
     try:
         for command in sql_commands:
             cursor.execute(command)
         conn.commit()
-        print("Database and tables initialized successfully!")
+        print("Tables initialized successfully!")
     except Exception as e:
-        print(f"Error initializing database: {e}")
+        print(f"Error initializing tables: {e}")
     finally:
         cursor.close()
         conn.close()

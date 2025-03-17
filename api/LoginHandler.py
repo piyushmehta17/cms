@@ -12,7 +12,7 @@ class LoginHandler(BaseHandler):
         cursor = conn.cursor(dictionary=True)  # Return results as dictionaries
         try:
             # Fetch hashed password from the database
-            cursor.execute("SELECT username, password, role FROM user WHERE username = %s", (username,))
+            cursor.execute("SELECT username, password, role FROM users WHERE username = %s", (username,))
             user = cursor.fetchone()
 
             if user and bcrypt.checkpw(password, user["password"].encode("utf-8")):

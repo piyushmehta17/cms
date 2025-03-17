@@ -15,7 +15,7 @@ class AdminHandler(BaseHandler):
         cursor = conn.cursor(dictionary=True)  # Return results as dictionaries
         try:
             # Fetch users from the database, excluding the admin user
-            cursor.execute("SELECT username, role, created_at FROM user WHERE username != 'admin'")
+            cursor.execute("SELECT username, role, created_at FROM users WHERE username != 'admin'")
             users = {user["username"]: {"role": user["role"], "created_at": user["created_at"]} for user in cursor.fetchall()}
             
             # Fetch files from the database
@@ -95,7 +95,7 @@ class AdminHandler(BaseHandler):
                     self.write("Cannot delete the admin user")
                     return
                 
-                cursor.execute("DELETE FROM user WHERE username = %s", (username,))
+                cursor.execute("DELETE FROM users WHERE username = %s", (username,))
                 conn.commit()
             elif action == "delete_file":
                 filename = self.get_argument("filename")
