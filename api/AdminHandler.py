@@ -82,7 +82,7 @@ class AdminHandler(BaseHandler):
                     return
                 
                 cursor.execute(
-                    "UPDATE user SET role = %s WHERE username = %s",
+                    "UPDATE users SET role = %s WHERE username = %s",
                     (role, username)
                 )
                 conn.commit()
