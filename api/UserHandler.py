@@ -5,7 +5,7 @@ class UserHandler(BaseHandler):
     def get(self):
         try:
             # Decode the current user from the cookie
-            user = json.loads(self.current_user.decode())
+            user = self.current_user
             
             # Check if the user is requesting to view a specific file
             view_file = self.get_argument("view", None)
@@ -61,7 +61,7 @@ class UserHandler(BaseHandler):
     def post(self):
         try:
             # Decode the current user from the cookie
-            user = json.loads(self.current_user.decode())
+            user = self.current_user
             
             # Get the action from the request
             action = self.get_argument("action", "")

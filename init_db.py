@@ -1,13 +1,12 @@
-# init_db.py
 from db import get_db_connection
 
 def initialize_database():
-    # Step 1: Create the database (connect without specifying a database)
+    # Create the database
     sql_create_db = """
     CREATE DATABASE IF NOT EXISTS file_manager;
     """
     
-    conn = get_db_connection(database=None)  # Connect without a database
+    conn = get_db_connection(database=None)
     cursor = conn.cursor()
     try:
         cursor.execute(sql_create_db)
@@ -19,7 +18,7 @@ def initialize_database():
         cursor.close()
         conn.close()
 
-    # Step 2: Create tables (connect to file_manager)
+    # Create tables
     sql_commands = [
         """
         USE file_manager;
@@ -42,10 +41,19 @@ def initialize_database():
             is_admin BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS sessions (
+            session_id VARCHAR(36) PRIMARY KEY,
+            username VARCHAR(255) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            expires_at TIMESTAMP NOT NULL,
+            FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
+        );
         """
     ]
 
-    conn = get_db_connection()  # Now connect to file_manager
+    conn = get_db_connection()
     cursor = conn.cursor()
     try:
         for command in sql_commands:

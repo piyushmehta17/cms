@@ -1,28 +1,48 @@
-from api.libraries import *
-from api.BaseHandler import *
+import tornado.web
+import json
+import bcrypt
+import uuid
+from datetime import datetime, timedelta
+from db import get_db_connection
+from api.BaseHandler import BaseHandler
+
 class LoginHandler(BaseHandler):
     def get(self):
         self.render("login.html")
     
     def post(self):
         username = self.get_argument("username")
-        password = self.get_argument("password").encode("utf-8")  # Convert to bytes for hashing
+        password = self.get_argument("password").encode("utf-8")
 
         conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)  # Return results as dictionaries
+        cursor = conn.cursor(dictionary=True)
         try:
-            # Fetch hashed password from the database
             cursor.execute("SELECT username, password, role FROM users WHERE username = %s", (username,))
             user = cursor.fetchone()
 
             if user and bcrypt.checkpw(password, user["password"].encode("utf-8")):
-                # Set a secure cookie if credentials are valid
-                self.set_secure_cookie("user", json.dumps({
-                    "username": user["username"],
-                    "role": user["role"]
-                }))
+                
+                session_id = str(uuid.uuid4())
+                expires_at = datetime.now() + timedelta(minutes=30)
+                
+                
+                cursor.execute(
+                    "INSERT INTO sessions (session_id, username, expires_at) VALUES (%s, %s, %s)",
+                    (session_id, user["username"], expires_at)
+                )
+                conn.commit()
 
-                # Redirect based on role
+                
+                self.set_secure_cookie(
+                    "user",
+                    json.dumps({
+                        "username": user["username"],
+                        "role": user["role"],
+                        "session_id": session_id
+                    }),
+                    expires=expires_at
+                )
+                
                 if user["role"] == "admin":
                     self.redirect("/admin")
                 else:

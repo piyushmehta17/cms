@@ -5,7 +5,7 @@ class AdminHandler(BaseHandler):
     @tornado.web.authenticated
     def get(self):
         # Decode the current user from the session
-        user = json.loads(self.current_user.decode())
+        user = self.current_user
         if user["role"] != "admin":  # Only allow admin users
             self.redirect("/user")
             return
@@ -44,7 +44,7 @@ class AdminHandler(BaseHandler):
     
     @tornado.web.authenticated
     def post(self):
-        user = json.loads(self.current_user.decode())
+        user = self.current_user
         if user["role"] != "admin":  # Only allow admin users
             self.redirect("/user")
             return
