@@ -8,7 +8,7 @@
     <div class="dashboard-container">
         <div class="section">
             <h1>Users</h1>
-            <a href="/login" class="logout">Logout</a>
+            <a href="/logout" class="logout">Logout</a>
             <input type="text" class="search-bar" id="userSearch" placeholder="Search users..." onkeyup="searchUsers()">
             <div class="user-list" id="userList">
                 {% for username, info in users.items() %}

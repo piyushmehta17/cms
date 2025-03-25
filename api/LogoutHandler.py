@@ -9,20 +9,22 @@ class LogoutHandler(BaseHandler):
         if user_cookie:
             try:
                 user_data = json.loads(user_cookie.decode("utf-8"))
-                session_id = user_data.get("session_id")
-                if session_id:
+                username = user_data.get("username")
+                if username:
                     conn = get_db_connection()
                     cursor = conn.cursor()
                     try:
-                        cursor.execute("DELETE FROM sessions WHERE session_id = %s", (session_id,))
+                        cursor.execute("DELETE FROM sessions WHERE username = %s", (username,))
                         conn.commit()
                     except Exception as e:
-                        print(f"Error during logout: {e}")
+                        
+                        pass
                     finally:
                         cursor.close()
                         conn.close()
             except (ValueError, KeyError):
-                pass  # Invalid cookie, just clear it
+                
+                pass
         
         self.clear_cookie("user")
         self.redirect("/login")
