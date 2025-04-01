@@ -10,6 +10,7 @@ import re
 import bcrypt
 import json
 import tornado.web
+from rbac import rbac, Permission
 
 from api.SignupHandler import SignupHandler
 from api.LoginHandler import LoginHandler
@@ -21,7 +22,36 @@ from api.BaseHandler import BaseHandler
 
 class BaseHandler(tornado.web.RequestHandler):
     def get_current_user(self):
-        return self.get_secure_cookie("user")
+        user = self.get_secure_cookie("user")
+        if user:
+            return json.loads(user)
+        return None
+
+    def get_user_role(self):
+        user = self.get_current_user()
+        if user and "role" in user:
+            return user["role"]
+        return None
+
+    def has_permission(self, permission: Permission) -> bool:
+        """
+        Check if the current user has the specified permission
+        """
+        role = self.get_user_role()
+        if not role:
+            return False
+        return rbac.has_permission(role, permission)
+
+    def require_permission(self, permission: Permission):
+        """
+        Decorator to require a specific permission for a handler method
+        """
+        if not self.has_permission(permission):
+            self.set_status(403)
+            self.write({"error": "Permission denied"})
+            self.finish()
+            return False
+        return True
 
 class MainHandler(BaseHandler):
     def get(self):
